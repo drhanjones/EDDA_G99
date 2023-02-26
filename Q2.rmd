@@ -1,0 +1,198 @@
+---
+title: "Q2"
+output: html_document
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+
+```
+
+## Q2
+
+### 2a)
+-   Comment on normality
+We can visualize the histogram of the data for before and after 8 weeks to check normality. Since histograms can differ based on the choice of bin width, qq plots are also used to check normality. A reference line corresponding to what a normal distribution would look like is added using qqline, to compare the qq plot against.
+
+On the plots we see the histogram looks normally distributed (like a bell curve), and the points in the qq plot are linear and close to the reference line, therefore, the dataset seems normally distributed.
+
+```{r cholesterol, echo=FALSE}
+datasete_filepath = '/Users/username/Downloads/cholesterol.txt'
+cholesterol = read.table(datasete_filepath, sep = ' ', header = TRUE)
+
+```
+
+```{r, out.width="70%"}
+hist(cholesterol$Before, main = "Cholesterol Before", xlab="level before diet")
+qqnorm(cholesterol$Before, main = "QQplot of Cholesterol Before")
+qqline(cholesterol$Before)
+
+
+hist(cholesterol$After8weeks, breaks = seq(2, 8, by = 1), main = "Cholesterol After", xlab = "Levels After 8 weeks")
+
+qqnorm(cholesterol$After8weeks, main = "QQplot of Cholesterol After")
+qqline(cholesterol$After8weeks)
+```
+
+- Are there any inconsistencies in the data
+There do not seem to be inconsistencies in the data based on the plots above and the scatter plot below.
+
+-  Investigate whether the columns Before and After8weeks are correlated.
+
+The columns seem quite correlated based on the scatterplot, which shows positive and strong correlation based on its linearity.
+Scatter plot with abline based on the dataset shown below.
+```{r, out.width="70%"}
+plot(cholesterol$Before, cholesterol$After8weeks, main = "Scatterplot of Before and After8weeks",
+     xlab = "Before", ylab = "After8weeks")
+abline(lm(cholesterol$After8weeks ~ cholesterol$Before), col = "red")
+```
+
+The correlation coefficient of 0.9908885 also suggests this.
+```{r}
+cor(cholesterol$Before, cholesterol$After8weeks)
+```
+
+
+### 2b)
+The data is paired, because each individual in the dataset is measured once before and once after the diet, hence each individual has two datapoints recorded for them. These are not independent of each other, since they measure differences in the same individual over time after a certain experiment. Hence these two datapoints for each individual are paired values. 
+
+**First test: paired t-test**
+
+The paired t test can be used to test for paired data. It assumes normality of differences of the data, which we can check with a qqplot of the differences:
+
+``` {r, out.width="70%", echo=FALSE}
+# Compute the differences between Before and After8weeks
+diffs <- cholesterol$After8weeks - cholesterol$Before
+
+# Create QQ plot
+qqnorm(diffs, main = "QQplot of differences")
+qqline(diffs)
+```
+
+Since the differences seem normally distributed we can use the paired t-test.
+
+Output of paired t-test:
+```{r}
+t.test(cholesterol$Before, cholesterol$After8weeks, paired = TRUE)
+
+```
+
+The p value of less than 0.05 determines that the null hypothesis should be rejected, hence a diet with low fat margarine does reduce cholesterol levels. The large t-value also indicates a significant difference in data before and after the diet. The mean difference of 0.6288889 shows that the diet decreased people’s cholesterol levels in general by  0.6288889 mmol/L, compared to their levels before the diet.
+
+
+**Second test: Wilcoxon signed-rank test** 
+
+This test doesn’t assume normality of differences like the paired t-test. 
+The null hypothesis is that the diet made no difference, and the alternative hypothesis is that there is a difference between the measurements before and after the diet i.e. it had a statistically significant effect. 
+
+The output of the wilcoxon signed-rank test:
+```{r}
+wilcox.test(cholesterol$Before, cholesterol$After8weeks, paired=TRUE, alternative="two.sided")
+```
+
+The high V value shows there is indeed a large difference between the paired observations, and since the p-value 7.629e-06 is less than 0.05, the null hypothesis can be rejected and the diet does make a difference to the cholesterol levels.
+
+Permutation test:
+A permutation test would be applicable if assumptions about the distribution of the dataset (like normality of differences assumed for the t-test) are violated. Its also applicable if the differences in distributions are not symmetric. 
+
+```{r}
+shapiro.test(diffs)
+```
+
+Based on the analysis from part a) and the output of a Shapiro-Wilk test, the assumptions about the normality and symmetry of the distribution, so a permutation test wouldn’t make sense in this context, because we already know the null distribution.
+
+### 2c)
+
+For the uniform distribution $Unif[3, \theta]$
+
+The mean is $\mu = \frac{3+\theta}{2}$ and the variance is $=\frac{(\theta-3)^2}{12}$.
+
+According to CLT the sample mean $\overline{X}$ for a large enough dataset follows an approximate normal distribution $N(\mu, \sigma^2)$, where $\mu$ is the mean of the uniform distribution above and the variance $\sigma^2 = \sqrt{\frac{(\theta - 3)^2}  {(12 * n)}}$ , and $n=18$ is the sample size.
+
+To solve for $\theta$, we can get an equation with $\theta$ as the subject from our equation for  $\mu = (3+\theta)/2$
+
+So we have $\hat{\theta}= 2\bar{X}̄ - 3$.
+
+So $\hat{\theta}$ is therefore = 
+```{r}
+2 * mean(cholesterol$After8weeks) - 3
+```
+
+The z value for 95% CI is 1.95.
+
+For our 95% CI: $\hat{\theta}$ +/- 95%_z_score$*\sigma/\sqrt(n)$
+
+```{r}
+xbar <- mean(cholesterol$After8weeks)
+theta_hat <- 2 *xbar - 3
+z <- qnorm(0.975) # 2-sided 95% confidence interval
+se <- sqrt((theta_hat - 3)^2 / (12 * 18))
+lowerbound <- theta_hat - z * se / sqrt(18)
+upperbound <- theta_hat + z * se / sqrt(18)
+```
+
+So the CI is
+```{r}
+c(lowerbound, upperbound)
+```
+
+
+Yes, the CI can be improved. A larger sample size, instead of n=18, would be better. Also, since our sample size is small (18), we can use more unbiased estimators eg. sample max instead of sample mean for the CI, which may improve it.
+
+### 2c)
+
+```{r}
+bootrsapnum <- 10000
+T_test_statistic <- function(x) max(x)
+
+# sample boostrap vals
+boot.samples <- replicate(bootrsapnum, sample(cholesterol$After8weeks, replace = TRUE))
+
+# calculate T for each as the max
+T_foreach.boot <- apply(boot.samples, 2, T_test_statistic)
+
+# calculate p value and CI
+p.value <- mean(T_foreach.boot >= max(cholesterol$After8weeks))
+confidenceinterval <- quantile(cholesterol$After8weeks, c(0.025, 0.975))
+```
+
+Since the p-value
+```{r}
+p.value
+```
+is > 0.05,  we fail to reject the null hypothesis, so the data isn’t uniformly distributed between [3, $\theta$]. 
+
+```{r}
+confidenceinterval
+```
+Hence H0 isn’t rejected for $\theta$ values within the CI. Therefore all theta except theta=3.66 in row 10 are rejected.
+
+Yes the KS test can be applied in this case with min=3 and max=12.
+```{r}
+ks.test(cholesterol$After8weeks, "punif", min = 3, max=12)
+
+```
+Since p is < 0.05, we reject the null hypothesis with ks and conclude that the data doesn’t seem to follow a uniform distribution of unif[3,12]
+
+
+### 2e)
+This question is broken into subparts to answer clearly:
+- verify if median cholesterol level after 8 weeks is < 6
+
+We can use Wilcoxon signed-rank test with H0 = median cholesterol level >= 6 and 
+ Alternative hypothesis = median cholesterol level is < 6. We can compare the medians of the paired samples with this test.
+ ```{r}
+ wilcox.test(cholesterol$After8weeks, mu = 6, alternative = "less")
+
+ ```
+Since p>0.05 for this test, we fail to reject H0, so we can’t conclude that the median cholesterol level after the diet is indeed < 6.
+
+- check if fraction of cholesterol levels after diet < 4.5 is at most 25%
+Since we want to check the  proportion of data less than some x, we can encode the dataset as indicators like 1 if the datapoint is < 4.5, 0 if its >4.5. The question then translates to checking the number of successes i.e. like a binomial distribution. So we can set i =the fraction of cholesterol levels < 4.5, and thus H0 =  i > 0.25, and the alternative hypothesis = i <= 0.25
+
+```{r}
+binom.test(sum(cholesterol$After8weeks < 4.5), n = length(cholesterol$After8weeks), p = 0.25, alternative = "less")
+```
+
+According to this binomial test,since p>0.05 we accept H0, so the proportion of cholesterol levels after 8 weeks on the diet is not more than 25%. 
