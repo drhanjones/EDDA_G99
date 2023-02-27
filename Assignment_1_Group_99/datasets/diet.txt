@@ -77,3 +77,4 @@ person gender    age    height  preweight	diet  weight6weeks
 76	1	28	164	85	3	79.7
 77	1	40	167	87	3	77.8
 78	1	51	175	88	3	81.9
+
