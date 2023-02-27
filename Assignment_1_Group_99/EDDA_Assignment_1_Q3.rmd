@@ -1,0 +1,155 @@
+---
+title: "R Notebook"
+output: html_document
+---
+
+```{r}
+suppressPackageStartupMessages({
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(reshape)
+library(ggpubr)
+library(car)
+})
+```
+```{r}
+data_path_q3 <- "/home/abishekthamma/PycharmProjects/Experimental_Design_and_Data_Analysis/Assignment_1_Group_99/datasets/diet.txt"
+diet_raw <- read.csv(data_path_q3, header = TRUE, sep = "",  dec = ".", check.names = TRUE)
+
+```
+```{r}
+clean_data <- function(data){
+
+  data <- na.omit(data)
+  data <- data[, colSums(is.na(data)) == 0]
+  return(data)
+}
+```
+Cleaning data by removing rows with NA values. The data contains NA in gender column.
+```{r}
+diet_clean <- clean_data(diet_raw)
+diet_clean$weight_lost <- diet_clean$preweight - diet_clean$weight6weeks
+#Changing column type to factor for diet and gender
+diet_clean$diet <- as.factor(diet_clean$diet)
+diet_clean$gender <- as.factor(diet_clean$gender)
+```
+
+# Question 3a)
+## Graphical Summary of Data
+
+
+```{r, figures-side, fig.show="hold", out.width = "33%"}
+hist(diet_clean$preweight, breaks =10, col = "blue", main = "Weight before Diet", xlab = "Weight in kg")
+hist(diet_clean$weight6weeks, breaks =10, col = "blue", main = "Weight after 6 weeks of dieting", xlab = "Weight in kg")
+boxplot_df <- melt(diet_clean, id.vars = setdiff(colnames(diet_clean), c("weight6weeks", "preweight")))
+boxplot_df$gender <- plyr::mapvalues(boxplot_df$gender, from=c(0,1), to=c("Female","Male"))
+ggplot(boxplot_df, aes(x = variable, y = value, fill = variable)) + geom_boxplot() +labs(title = "Boxplot of weight before and after dieting", x = "Weight", y = "Weight in kg")
+```
+```{r, fig.show="hold", out.width = "50%"}
+ggqqplot(diet_clean$preweight, main = "Normal Q-Q plot of weight before diet", xlab = "Theoretical Quantiles", ylab = "Sample Quantiles")
+ggqqplot(diet_clean$weight6weeks, main = "Normal Q-Q plot of weight after 6 weeks of dieting", xlab = "Theoretical Quantiles", ylab = "Sample Quantiles")
+```
+Looking at changes to weight between different genders and different diets
+```{r, fig.show="hold", out.width = "50%"}
+
+
+ggplot(boxplot_df, aes(x = diet, y = value, fill = variable )) + geom_boxplot() + labs(title = "Boxplot of weight before and after dieting separated by different diets", x = "Diet", y = "Weight in kg")
+ggplot(boxplot_df, aes(x = gender, y = value, fill = variable )) + geom_boxplot() + labs(title= "Boxplot of weight before and after dieting separated by different genders", x = "Gender", y = "Weight in kg")
+```
+## Test claims that diet affects weight loss
+
+To test the claim that diet affects weight loss, we can apply paired t test as the samples are present pairwise, along with before and after values.
+
+Before we implement pairwise t-test, we check for the assumptions of normality. For this, we can look at the graphical representation of data using histogram and Q-Q plot. We can also use Shapiro-Wilk test to check for normality. The null hypothesis of Shapiro-Wilk test is that the data is normally distributed. If the p-value is less than 0.05, we can reject the null hypothesis and conclude that the data is not normally distributed.
+
+```{r, fig.show="hold", out.width = "33%"}
+hist(diet_clean$weight_lost, breaks =10, col = "blue", main = "Weight lost", xlab = "Weight in kg")
+ggqqplot(diet_clean$weight_lost, main = "Normal Q-Q plot of weight lost", xlab = "Theoretical Quantiles", ylab = "Sample Quantiles")
+shapiro.test(diet_clean$weight_lost)
+```
+By looking at the data graphically, we can see that it is normally distributed. This can also be confirmed from the value of p-value from Shapiro-Wilk test. The p-value is 0.79, which is greater than 0.05. Hence, we can conclude that the data is normally distributed.
+```{r}
+t.test(diet_clean$preweight, diet_clean$weight6weeks, paired = TRUE, alternative = "two.sided")
+```
+From the results of the t-test, we can see that the p-value is <2.2e-16, which is less than 0.05. Hence, we can reject the null hypothesis and conclude that there is a significant difference between the weight before and after dieting. From this we can conclude that dieting does affect weight loss
+
+
+# Question 3 (b)
+
+
+```{r}
+one_side_anova <- lm(weight_lost ~ diet, data = diet_clean)
+```
+Before we can analyse the data, we need to check for the assumptions of normality. For this, we can look at the graphical representation of data using histogram and Q-Q plot. We can also use Shapiro-Wilk test to check for normality.
+```{r, fig.show="hold", out.width = "33%"}
+ggqqplot(residuals(one_side_anova), main = "Normal Q-Q plot of residuals", xlab = "Theoretical Quantiles", ylab = "Sample Quantiles")
+shapiro.test(residuals(one_side_anova))
+
+```
+
+
+From the graphical representation and the results of the Shapiro-Wilk test, we can see that the data is normally distributed. We can proceed with the One Side ANOVA test.
+```{r}
+anova(one_side_anova)
+```
+From the results of the ANOVA, we can see that the p values is <0.05. Hence, we can reject the null hypothesis and conclude that there is a significant difference between the weight lost by different diets.
+
+
+To further understand which weight loss is better, we can apply some form of post-hoc test. We can apply Tukey HSD test to compare the means of different diets.
+```{r, fig.show="hold", out.width = "33%"}
+TukeyHSD(aov(weight_lost ~ diet, data = diet_clean))
+plot(TukeyHSD(aov(weight_lost ~ diet, data = diet_clean)))
+```
+
+
+We can see from the post hoc analysis that diet 1 and 2 are not significantly different from each other, however, 3 is from both 1 and 2.
+
+To check whether all 3 diets lead to weight loss, we can apply T test for all 3 diets individually
+
+```{r}
+diet1 <- diet_clean[diet_clean$diet == 1,]
+diet2 <- diet_clean[diet_clean$diet == 2,]
+diet3 <- diet_clean[diet_clean$diet == 3,]
+t.test(diet1$preweight, diet1$weight6weeks, paired = TRUE, alternative = "two.sided")
+t.test(diet2$preweight, diet2$weight6weeks, paired = TRUE, alternative = "two.sided")
+t.test(diet3$preweight, diet3$weight6weeks, paired = TRUE, alternative = "two.sided")
+
+```
+From the results of the T test, we can understand that all 3 diets lead to weight loss. However, diet 3 leads to more weight loss than diet 1 and 2.
+
+For the previous example, we can use Kruskal-Wallis test too, as it doesn't require the normality assumption from the data. However, since our data is already normally, we can proceed with ANOVA. Additionally, since Kruskal-Wallis is a comparison of ranks while ANOVA is a comparison of means, in our case if we are looking at identifying which diet is better, we can use ANOVA better.
+
+# Question 3 (c)
+
+two-way ANOVA on the effect of diet and gender and its interaction on weight loss.
+
+We fit a linear model to the data, with weight lost as dependent variable and diet and gender as its factors. Further, we check for the assumptions of normality, before we can implement a two-way ANOVA test.
+```{r}
+
+lm2 <- lm(weight_lost ~ diet * gender, data = diet_clean)
+ggqqplot(residuals(lm2), main = "Normal Q-Q plot of residuals", xlab = "Theoretical Quantiles", ylab = "Sample Quantiles")
+shapiro.test(residuals(lm2))
+```
+From the graphical representation of data using Q-Q plot, we can see that the data is not entirely normal. However, we can use Shapiro-Wilk test to check for normality, and in this case the p-value is not less 0.05 and thus we can conclude that the data is normally distributed. We can proceed with the two-way ANOVA test.
+```{r}
+anova(lm2)
+
+```
+
+From the results of this, we can observe that type of diet has an effect on weight loss (As we observed in the previous question), however gender alone doesn't seem to. We can further notice that an interaction of type of diet and gender does again seem to have an effect on the weight loss.
+
+# Question 3 (e)
+
+From the analysis of the previous 2 question, we can notice that the 2 way anova points towards an interaction between type of diet and gender as factors affecting weight loss, and additionally, the model seems to be a better fit. From this, we can conclude that the two-way anova is a better model than one way anova.
+
+```{r}
+#Select only gender and diet columns
+df <- diet_clean %>% dplyr::select(c("gender","diet")) %>% distinct()
+predictions <- data.frame(predict(lm2, newdata =df))
+colnames(predictions) <- "predicted_weight_lost"
+df1 <- merge(df, predictions, by = "row.names")
+df1 <- df1[,-1]
+df1
+```
+In the above table, we can observe the predicted weight loss for each pair of gender and type of diet.

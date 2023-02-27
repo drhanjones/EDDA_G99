@@ -1,0 +1,57 @@
+```{r}
+suppressPackageStartupMessages({
+library(MASS)})
+```
+# 4 (b)
+
+```{r, figures-side, fig.show="hold", out.width = "33%"}
+ggplot(npk %>% group_by(block, N) %>% summarise(mean_yield = mean(yield)), aes(x = block, y = mean_yield, fill = N)) + geom_bar(stat = "identity", position = "dodge") + theme(axis.text.x = element_text(angle = 0, hjust = 1)) + xlab("Block of plot") + ylab("Average Yield") + ggtitle("Average Yield per plot by Block and Nitrogen")
+
+```
+From the graphical representation of the data, we can observe that the average yield is higher for the plots with nitrogen than the ones without. From the graphical representation, we can also observe that certain blocks have a better average yield than the other. Additionally, we would not be able to comment if the change in value of average yield is because of the blocks themselves/nitrogen/interaction between the two, or any other factor.
+
+# Question 4 (c)
+
+```{r, figures-side, fig.show="hold", out.width = "33%"}
+lm3 <- lm(yield ~ block * N, data = npk)
+lm3_1 <- lm(yield ~ block + N, data = npk)
+anova(lm3)
+anova(lm3_1)
+```
+
+From the above analysis, we can observe that both block and existence have an impact over the yield. From the table, we can also see that the interaction between the Block and existence of Nitrogen or not is significant.
+
+We also perform a two way anova, assuming the factors are independent, and as expected, the results show that both factors influence the yield.
+
+It does seem sensible in retrospect that including the factor of block into the model as it shows influence on the yield.
+
+#Question 4 (d)
+
+For this analysis, we consider the interaction between block and presence or absence of each of Nitrogen, Potassium, and Phosphate. We build 3 different models and compare the results between the 3 of them
+```{r, figures-side, fig.show="hold", out.width = "33%"}
+lm4 <- lm(yield ~ block * N + P + K, data = npk)
+anova(lm4)
+```
+```{r}
+lm5 <- lm(yield ~ block * P + N + K, data = npk)
+anova(lm5)
+```
+```{r}
+lm6 <- lm(yield ~ block * K + P + N, data = npk)
+anova(lm6)
+```
+
+From the above 3 models, we can see that all 3 models seem to be performing equally well. But, if we had to select the best model from the 3, we would select the first one that has interaction between block and nitrogen is the best, because it has lower p values and lower residuals.
+
+
+Furthermore, since we notice from the results that the interaction effect is not significant, we can try to build one other model which takes the main effects of the factors without any interaction
+
+```{r, figures-side, fig.show="hold", out.width = "33%"}
+
+lm7 <- lm(yield ~ block + N + P + K, data = npk)
+anova(lm7)
+```
+
+
+
+
