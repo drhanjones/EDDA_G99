@@ -1,0 +1,162 @@
+---
+title: "Q1"
+author: "Dheeraj Varghese"
+date: "2023-02-27"
+output:
+  html_document: default
+  pdf_document: default # latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Exercise 1. Birthweights
+
+### a
+
+```{r}
+dataset_filepath <- 'Assignment_1_Group_99/datasets/birthweight.txt'
+birthweights <- read.table(dataset_filepath, sep = ' ', header = TRUE)
+birthweights <- birthweights[,1]
+```
+
+```{r,echo = FALSE,fig.width=8,fig.height=4,fig.align="center"}
+par(mfrow=c(1,2))
+hist(birthweights,probability = TRUE,main = "Histogram of birthweights",xlab="Weights (gr)"); qqnorm(birthweights);qqline(birthweights,col="blue",lty = 5,lwd=1)
+# boxplot(observed_birthweights)
+```
+
+The histogram and the qqplot (which follows very closely to the line), indicate that the data is normally distributed. We perform a Shapiro-Wilk Test to further our case.
+
+```{r,echo = FALSE}
+shapiro.test(birthweights)
+```
+A p-value of 0.9 indicates that the null hypothesis (The data being normally distributed) should not be rejected.
+
+```{r}
+
+n <- length(birthweights)
+mu <- mean(birthweights)
+se <- sd(birthweights) / sqrt(n)
+alpha <- 0.04
+
+z <- qnorm(1 - alpha/2)
+lower <- mu - z * se
+upper <- mu + z * se
+
+cat("The Bounded 96% CI for µ: (", round(lower, 3), ",", round(upper,3), ")\n")
+
+obs_req <- ((2 * z * sd(birthweights) ) / 100) ^ 2
+cat("Sample size required for 100 length 96% CI: ", round(obs_req, 3))
+
+```
+Evaluating the equation, $\sqrt{n} \ge \frac{z_{\alpha / 2} \cdot s}{E}$, we conclude that we need at least 821 observations when the length of the 96% CI is atmost 100.
+
+```{r}
+
+# Computing Boostrap
+
+set.seed(10) # For replication
+boot_means <-  replicate(1000, mean(sample(birthweights, replace = TRUE)))
+lower_boot <- quantile (boot_means, alpha /2)
+upper_boot <- quantile (boot_means, 1 - alpha /2)
+cat("Bootstrap 96% CI: (", round(lower_boot,3), ",", round(upper_boot,3), ")\n")
+
+```
+
+The bootstrapped CI is (2808.954,3022.196), whereas the evaluated CI is (2808.817,3017.768). The difference in length is very small and the extremes of the intervals are really close.
+
+### b
+
+An expert claims that the mean birthweight is bigger than 2800 gram. Verify this claim by using a relevant t-test, explain the meaning of the CI in the R-output for this test. Also propose and perform a suitable sign tests for this problem.
+
+To verify the experts claim, we perform a one-sample t-test (with the null hypothesis that $H_{0} \ that\ \mu = 2800$)
+
+```{r}
+
+t.test(birthweights, mu=2800, alternative="greater")
+
+```
+
+The p-value (0.013) is less than 0.05, indicating that there is strong evidence to reject the null hypothesis. Further, the CI= [2829.202, ∞], for which the lower bound is greater than $\mu$ and there is no upper bound (i.e. the bound is Infinite). Therefore, we can conclude that the expert's claim is supported by the data.
+
+A suitable sign test for problem is:
+
+```{r}
+
+binom.test(sum(birthweights>2800), length(birthweights), p=0.5, alternative = "greater")
+
+```
+The p-value is less than 0.05, indicating that the sign test also gives strong evidence to reject the null hypothesis (Additionally, 107 out of the 188 birthweights are greater than 2800). 
+
+### c
+
+Utilizing the pwr library, we compute the power of the t-test performed. We need to specify an alternative hypothesis. Here, we take a population mean of 3000 grams.
+
+```{r}
+
+library(pwr)
+
+alt_mu <- 3000
+alpha <- 0.04
+n <- length(birthweights) 
+ 
+sd <- sd(birthweights) 
+es <- (alt_mu - 2800) / sd # effect size
+power <- pwr.t.test(n = n, d = es, sig.level = alpha, alternative = "greater")$power
+#power
+cat("Computed power of t-test: ", power)
+```
+For the sign test, we utilize the binom.test function. The null hypothesis proportion is 0.5 (assuming, there is no difference).
+
+```{r}
+
+sign_power <- binom.test(sum(birthweights > alt_mu), n, p = 0.5, alternative = "greater")$p.value
+# sign_power
+cat("Computed power of sign test: ", sign_power)
+```
+
+Power is the probability that a statistical test will detect a deviation from the null hypothesis, i.e., reject the null hypothesis. A high power indicates a large chance of a test detecting a a deviation. As shown above, a large change from the mean, has a high power. 
+
+The power of both tests will depend on the chosen alternative hypothesis and the assumed mean (μ1).
+
+
+### d
+
+We use the formula, $\hat{p} \pm z_{\alpha / 2} \sqrt{\frac{\hat{p} (1 - \hat{p})}{n}} $ to obtain the confidence interval. We substitute the lower bound, to calculate the z value. Now, the upper value of the confidence interval can be recovered.
+
+
+```{r}
+
+p_l <- 0.25
+p_hat <- sum(birthweights<2600) / n
+se <- sqrt(p_hat * (1 - p_hat) / n)
+
+z_val <- (p_hat - p_l) / se
+p_r <- p_hat + z_val * se
+cl <- pnorm(z_val)
+
+cat("We conclude that the recovered interval is: [", round(p_l,3), ",", round(p_r,3), "] with a confidence level of ", round(cl,3) * 100, "%")
+```
+
+
+
+### e
+
+```{r}
+
+males_1 <- rep(c("M"), 34)
+females_1 <- rep(c("F"), 28)
+babies_1 <- c(males_1, females_1)
+
+males_2 <- rep(c("M"), 61)
+females_2 <- rep(c("F"), 65)
+babies_2 <- c(males_2, females_2)
+
+weights <- c(rep(1, 62), rep(2, 126))
+t_result <- t.test(weights ~ c(babies_1, babies_2), var.equal = TRUE)$p.value
+cat("The p-value for the two-sample t-test is", round(t_result,3), "\n")
+```
+The claim cannot be verified as the p-value is 0.41, which is above our alpha level of 0.05. Therefore, the t-test indicates that mean weight is not different for male and female babies.
+
