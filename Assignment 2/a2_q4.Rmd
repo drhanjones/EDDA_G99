@@ -1,0 +1,87 @@
+---
+title: "a2_q4"
+output: html_document
+---
+
+## 4a)
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, echo=FALSE}
+# Load the data
+coups <- read.table("/path/to/coups.txt", header = TRUE)
+```
+
+```{r}
+# Fit Poisson regression model
+poisson_model <- glm(miltcoup ~ oligarchy + pollib + parties + pctvote + popn + size + numelec + numregim, data = coups, family = poisson)
+
+# View model summary
+summary(poisson_model)
+```
+
+The summary shows a residual deviance of 28.668 on 27 degrees of freedom, which means the model fits well to the data.
+Based on this, we can further analyze oligarchy, pollib and parties having a significant effect on predicting military coups, since their p-values are <0.05. 
+So an increase in oligarchy and parties predicts an increase in coups (due to their positive coefficients), while an increase in pollib decreases coups (due to its negative coefficient).
+The popn and size variables have p-value>0.05, so the population size and area don't significantly affect whether or not coups happen.
+Numregim has a positive coefficient so places with more regime types might be at greater risk of coups, but since its not statistically significant (p>0.05), we can't say numregim has a statistically significant effect on possibility of coups.
+
+## 4b)
+
+To reduce exploratory variables with a step-down approach, we can reduce the variables with the maximum p-value:
+
+```{r}
+# Step 1: remove least-signficant variable i.e. highest p-value variable
+max_pvalue <- max(summary(poisson_model)$coefficients[-1, "Pr(>|z|)"]) # exclude intercept
+# Step 2: Check if pvalue is > 0.05 for that variable
+max_pvalue > 0.05
+# Step 3: find which variable to remove
+reduce_var <- names(which.max(summary(poisson_model)$coefficients[-1, "Pr(>|z|)"])) # exclude intercept
+reduce_var
+```
+
+```{r}
+# Step 4: remove that variable from model and repeat above steps to refit model
+poisson_model <- update(poisson_model, . ~ . - numelec)
+```
+Steps 1-4 above are repeated for different remove_var variables until only variables with p<0.05 are left. The order of removing variables is: 
+numregim, size, popn, pctvote.
+Final model summary:
+
+```{r, echo=FALSE}
+poisson_model <- update(poisson_model, . ~ . - numregim)
+poisson_model <- update(poisson_model, . ~ . - size)
+poisson_model <- update(poisson_model, . ~ . - popn)
+poisson_model <- update(poisson_model, . ~ . - pctvote)
+summary(poisson_model)
+```
+Comparing the models, from part a) and b):
+
+- the AIC of b) is lower than for a), hence b) with fewer variables might have a better balance between godness of fit vs model complexity
+- there is a lower residual deviance in a), so the data in a)  fits the Poisson distribution better, suggesting those variables contributed to better fit
+- pollib in a) is more negative than pollib in b), suggesting that the the link between liberal policies and coups is weaker in model b) than a). 
+
+
+## 4c)
+```{r}
+
+# make variables from b) = overall ave for them
+# make 3 rows for each level of pollib
+newdata <- data.frame(oligarchy = rep(mean(coups$oligarchy), 3), pollib = rep(mean(coups$pollib), 3), 
+                      parties = rep(mean(coups$parties), 3))
+
+# set the 3 levels of pollib
+newdata$pollib <- c(0, 1, 2)
+poisson_model_b = glm(formula = miltcoup ~ oligarchy + pollib + parties, family = poisson, data = coups)
+predicted.coups <- predict(object = poisson_model_b, newdata = newdata, type = "response")
+
+# View num coups at 3 different pollib levels
+cbind(newdata$pollib, round(predicted.coups, 2))
+
+```
+
+These values suggest as the political liberalization increases the number of coups decreases. A country with no civil rights for political expression has 3.04 predicted coups,  with limited civil rights for expression but right to form political parties predicted number of coups becomes 1.71, with full civil rights predicted coups decreases even more to 0.96.
+
+The findings show increasing political liberalization, freedom of expression and rights decrease the probability of military coups happening. The biggest decrease in likelihood of coups is when pollib increases from level 1 to 2.
